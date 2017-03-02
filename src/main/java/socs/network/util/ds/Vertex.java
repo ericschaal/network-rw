@@ -1,5 +1,7 @@
 package socs.network.util.ds;
 
+import java.util.Objects;
+
 /**
  * Created by ericschaal on 2017-03-01.
  */
@@ -30,19 +32,16 @@ public class Vertex {
 
     @Override
     public boolean equals(Object obj) {
+
+        if (Objects.isNull(obj) || !(obj instanceof Vertex))
+            return false;
         if (this == obj)
             return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
+
         Vertex other = (Vertex) obj;
-        if (id == null) {
-            if (other.id != null)
-                return false;
-        } else if (!id.equals(other.id))
-            return false;
-        return true;
+
+        return (other.getId().equals(this.getId()));
+
     }
 
     @Override

@@ -85,7 +85,9 @@ public class Client extends Thread {
                 throw new UnexpectedSOSFPacket();
 
             System.out.println("received HELLO from " + rcv.srcIP);
+
             updateTwoWay();
+
             System.out.println("set " + rcv.srcIP + " to TWO_WAY");
 
             sendHello();

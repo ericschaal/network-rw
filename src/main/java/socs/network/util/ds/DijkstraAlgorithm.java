@@ -17,15 +17,15 @@ public class DijkstraAlgorithm {
 
     public DijkstraAlgorithm(Graph graph) {
         // create a copy of the array so that we can operate on this array
-        this.nodes = new ArrayList<Vertex>(graph.getVertices());
-        this.edges = new ArrayList<Edge>(graph.getEdges());
+        this.nodes = new ArrayList(graph.getVertices());
+        this.edges = new ArrayList(graph.getEdges());
     }
 
     public void execute(Vertex source) {
-        settledNodes = new HashSet<Vertex>();
-        unSettledNodes = new HashSet<Vertex>();
-        distance = new HashMap<Vertex, Integer>();
-        predecessors = new HashMap<Vertex, Vertex>();
+        settledNodes = new HashSet();
+        unSettledNodes = new HashSet();
+        distance = new HashMap();
+        predecessors = new HashMap();
         start = source;
         distance.put(source, 0);
         unSettledNodes.add(source);
@@ -113,6 +113,9 @@ public class DijkstraAlgorithm {
         Vertex step = target;
         // check if a path exists
 
+        if (Objects.isNull(target) || Objects.isNull(start))
+            throw new IllegalArgumentException();
+
         // loop
         if (target.equals(start)) {
             path.add(new Edge("", start, start, 0));
@@ -122,10 +125,10 @@ public class DijkstraAlgorithm {
         if (predecessors.get(step) == null) {
             return null;
         }
-        path.add(new Edge("", step, predecessors.get(step), getWeight(step, predecessors.get(step))));
+        path.add(new Edge("", predecessors.get(step), step, getWeight(predecessors.get(step), step)));
         while (predecessors.get(predecessors.get(step)) != null) {
             step = predecessors.get(step);
-            path.add(new Edge("", step, predecessors.get(step), getWeight(step, predecessors.get(step))));
+            path.add(new Edge("", predecessors.get(step), step, getWeight(predecessors.get(step), step)));
         }
         // Put it into the correct order
         Collections.reverse(path);

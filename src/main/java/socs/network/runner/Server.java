@@ -18,9 +18,6 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.Vector;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static socs.network.message.SOSPFPacketType.UNKNOWN;
 
 /**
  * Created by ericschaal on 2017-02-28.
@@ -66,7 +63,7 @@ public class Server extends Thread {
         if (!owner.linkExists(link)) {
 
             owner.addLink(link);
-            owner.updateLSB(link);
+            owner.updateLSD(link);
         } else link.getOtherEnd(owner.getSimulatedIp()).setStatus(RouterStatus.INIT); // Setting to init
 
         System.out.println("set " + rcv.srcIP + " to INIT"); // Print log
@@ -100,7 +97,7 @@ public class Server extends Thread {
 
         System.out.println("set " + rcv.srcIP + " to TWO_WAY"); // Printing log
 
-        owner.updateLSB(link);
+        owner.updateLSD(link);
 
 
 
@@ -112,11 +109,8 @@ public class Server extends Thread {
 
         Broadcast broadcast = new Broadcast(links, lsas, owner);
         broadcast.start();
-
-
         broadcast.join();
 
-        // send lsupdate
     }
 
 
@@ -138,11 +132,12 @@ public class Server extends Thread {
                 case LSUPDATE:
 
                     System.out.println("Received LSUPDATE from " + rcv.srcIP);
+
                     Vector<LSA> lsas = rcv.lsaArray;
 
                     for (LSA lsa : lsas) {
 
-                        System.out.println("LSA vector size: " + lsas.size());
+                        //System.out.println("LSA vector size: " + lsas.size());
                         if (owner.getLsd().getFromStore(lsa.linkStateID) == null
                                 || (owner.getLsd().getFromStore(lsa.linkStateID).lsaSeqNumber < lsa.lsaSeqNumber)) { // no record from this router yet or newest sequence number
 
@@ -169,7 +164,7 @@ public class Server extends Thread {
                             broadcast.start();
                         }
                         else {
-                            System.out.println("Dropping.");
+                            //System.out.println("Dropping.");
                         }
 
                     }

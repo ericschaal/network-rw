@@ -3,6 +3,7 @@ package socs.network.node;
 import socs.network.message.LSA;
 import socs.network.message.LinkDescription;
 import socs.network.util.ds.*;
+import socs.network.util.error.NoPath;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -12,7 +13,7 @@ import java.util.Objects;
 public class LinkStateDatabase {
 
   //linkStateID => LSAInstance
-  HashMap<String, LSA> _store = new HashMap<String, LSA>();
+  private HashMap<String, LSA> _store = new HashMap<String, LSA>();
 
   private RouterDescription rd = null;
 
@@ -25,34 +26,44 @@ public class LinkStateDatabase {
   /**
    * output the shortest path from this router to the destination with the given IP address
    */
-  public String getShortestPath(String destinationIP) {
+  public String getShortestPath(String destinationIP) throws NoPath {
 
     Graph graph = new Graph(getAllLSA());
     LinkedList<Edge> path;
 
     DijkstraAlgorithm alg = new DijkstraAlgorithm(graph);
-    alg.execute(graph.getVertexWith(rd.getSimulatedIPAddress()));
-    path = alg.getPathWithDistance(graph.getVertexWith(destinationIP));
+
+    Vertex source = graph.getVertexWith(rd.getSimulatedIPAddress());
+    Vertex destination = graph.getVertexWith(destinationIP);
+
+    if (Objects.isNull(source))
+      throw new RuntimeException("Couldn't find source vertex."); // should never happen
+
+    if (Objects.isNull(destination))
+      throw new NoPath();
+
+    alg.execute(source);
+    path = alg.getPathWithDistance(destination);
 
     StringBuilder sb = new StringBuilder();
 
-    for (Vertex v : graph.getVertices()) {
-      System.out.println(v.getId());
-    }
-
-    for (Edge e : graph.getEdges()) {
-      System.out.println(e.getSource() + "->" + e.getDestination() + "(" + e.getWeight() + ")");
-    }
-
-    System.out.println();
-    System.out.println();
+//    for (Vertex v : graph.getVertices()) {
+//      System.out.println(v.getId());
+//    }
+//
+//    for (Edge e : graph.getEdges()) {
+//      System.out.println(e.getSource() + "->" + e.getDestination() + "(" + e.getWeight() + ")");
+//    }
+//
+//    System.out.println();
+//    System.out.println();
 
     if (Objects.isNull(path))
-      throw new IllegalStateException();
+      throw new NoPath();
+
 
     sb.append(path.getFirst().getSource() + "->");
     for (Edge s : path) {
-      //if (!path.getFirst().v.equals(s.v))
       sb.append("(" + s.getWeight() + ")");
       sb.append(s.getDestination());
       if (!path.getLast().getDestination().equals(s.getDestination())) {
@@ -78,15 +89,15 @@ public class LinkStateDatabase {
     return lsa;
   }
 
-  public void addToStore(String linkID, LSA instance) {
+  public synchronized void addToStore(String linkID, LSA instance) {
     _store.put(linkID,instance);
   }
 
-  public Collection<LSA> getAllLSA() {
+  public synchronized Collection<LSA> getAllLSA() {
     return _store.values();
   }
 
-  public LSA getFromStore(String linkstateID) {
+  public synchronized LSA getFromStore(String linkstateID) {
     return _store.get(linkstateID);
   }
 

@@ -11,6 +11,7 @@ import socs.network.util.Configuration;
 import socs.network.util.Utility;
 import socs.network.util.error.DuplicatedLink;
 import socs.network.util.error.LinkNotAvailable;
+import socs.network.util.error.NoPath;
 import socs.network.util.error.RouterPortsFull;
 
 
@@ -18,6 +19,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.LinkedList;
+import java.util.Objects;
 import java.util.Vector;
 
 public class Router {
@@ -118,7 +120,7 @@ public class Router {
     }
 
 
-    public synchronized void updateLSB(final Link link) {
+    public synchronized void updateLSD(final Link link) {
         LSA lsa = lsd.getFromStore(rd.getSimulatedIPAddress()); // getting my lsa
         assert (lsa != null);
         try {
@@ -159,7 +161,12 @@ public class Router {
      * @param destinationIP the ip adderss of the destination simulated router
      */
     private void processDetect(String destinationIP) {
-        System.out.println(lsd.getShortestPath(destinationIP));
+        try {
+
+            System.out.println(lsd.getShortestPath(destinationIP));
+        } catch (NoPath e) {
+            System.out.println("No path available from " + rd.getSimulatedIPAddress() + " to " + destinationIP);
+        }
     }
 
     /**
@@ -206,7 +213,7 @@ public class Router {
         try {
 
             addLink(newLink);
-            updateLSB(newLink);
+            updateLSD(newLink);
 
 
         } catch (DuplicatedLink e) {
@@ -241,8 +248,7 @@ public class Router {
             for (Client client : clients)
                 client.join();
 
-            Vector<LSA> lsas = new Vector<LSA>();
-            lsas.add(lsd.getFromStore(getSimulatedIp())); // get my LSA
+            Vector<LSA> lsas = new Vector<LSA>(lsd.getAllLSA());
 
             Broadcast broadcast = new Broadcast(getTwoWayLinks(), lsas, this);
             broadcast.start();
@@ -279,6 +285,10 @@ public class Router {
      * Outputs the neighbors of the routers
      */
     private void processNeighbors() {
+        for (Link link : ports) {
+            if (!Objects.isNull(link) && link.getOtherEnd(getSimulatedIp()).getStatus() == RouterStatus.TWO_WAY)
+                System.out.println(link.getOtherEnd(getSimulatedIp()).getSimulatedIPAddress());
+        }
 
     }
 
@@ -326,7 +336,7 @@ public class Router {
                     printPorts();
                 }
                 else if (command.equals("lsd")) {
-                  printLSB();
+                  printLSD();
                 } else if (command.startsWith("UnsafeRemove ")) {
                     String[] cmdLine = command.split(" ");
                     removeLink(Integer.parseInt(cmdLine[1]));
@@ -401,27 +411,11 @@ public class Router {
         return ports;
     }
 
-    public synchronized void printLSB() {
+    public synchronized void printLSD() {
         System.out.println();
         System.out.println(lsd.toString());
         System.out.println();
     }
 
 
-    /**
-     * Gets a specific link in ports array identified by two router description. Order does not matter
-     * @param rd1 router description 1
-     * @param rd2 router description 2
-     * @return link if found, null otherwise
-     */
-    public synchronized Link getLink(RouterDescription rd1, RouterDescription rd2, short weight) {
-        Link test = new Link(rd1, rd2, weight);
-        for (Link link : ports) {
-            if (link != null) {
-                if (link.equals(test))
-                    return link;
-            }
-        }
-        return null;
-    }
 }
