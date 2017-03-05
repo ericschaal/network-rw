@@ -2,7 +2,10 @@ package socs.network.node;
 
 import socs.network.message.LSA;
 import socs.network.message.LinkDescription;
-import socs.network.util.ds.*;
+import socs.network.util.ds.DijkstraAlgorithm;
+import socs.network.util.ds.Edge;
+import socs.network.util.ds.Graph;
+import socs.network.util.ds.Vertex;
 import socs.network.util.error.NoPath;
 
 import java.util.Collection;
@@ -39,29 +42,20 @@ public class LinkStateDatabase {
     if (Objects.isNull(source))
       throw new RuntimeException("Couldn't find source vertex."); // should never happen
 
-    if (Objects.isNull(destination))
+    if (Objects.isNull(destination)) // cant find destination
       throw new NoPath();
 
-    alg.execute(source);
+    alg.start(source);
     path = alg.getPathWithDistance(destination);
 
     StringBuilder sb = new StringBuilder();
 
-//    for (Vertex v : graph.getVertices()) {
-//      System.out.println(v.getId());
-//    }
-//
-//    for (Edge e : graph.getEdges()) {
-//      System.out.println(e.getSource() + "->" + e.getDestination() + "(" + e.getWeight() + ")");
-//    }
-//
-//    System.out.println();
-//    System.out.println();
 
-    if (Objects.isNull(path))
+    if (Objects.isNull(path)) // cant find path
       throw new NoPath();
 
 
+    // building string in correct format
     sb.append(path.getFirst().getSource() + "->");
     for (Edge s : path) {
       sb.append("(" + s.getWeight() + ")");
@@ -102,7 +96,7 @@ public class LinkStateDatabase {
   }
 
 
-  public String toString() {
+  public synchronized String toString() {
     StringBuilder sb = new StringBuilder();
     for (LSA lsa: _store.values()) {
       sb.append(lsa.linkStateID).append("(" + lsa.lsaSeqNumber + ")").append(":\t");

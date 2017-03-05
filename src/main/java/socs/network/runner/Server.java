@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 
 /**
  * Created by ericschaal on 2017-02-28.
+ * Handles received SOSPFPackets
  */
 public class Server extends Thread {
 
@@ -42,16 +43,26 @@ public class Server extends Thread {
     }
 
 
+    /**
+     * Opens socket streams
+     * @throws IOException
+     */
     private void init() throws IOException {
         out = new ObjectOutputStream(client.getOutputStream());
         in = new ObjectInputStream(client.getInputStream());
     }
 
+    /**
+     * Handles first hello packet
+     * @throws DuplicatedLink link already exists
+     * @throws RouterPortsFull no port available
+     * @throws IOException stream error
+     */
     private void handleFirstHello() throws DuplicatedLink, RouterPortsFull, IOException {
 
         System.out.println("received HELLO from " + rcv.srcIP);
 
-        sender = new RouterDescription.RouterDescriptionBuilder()
+        sender = new RouterDescription.RouterDescriptionBuilder() // other end description
                 .INIT()
                 .processIPAddress(rcv.srcProcessIP)
                 .processPortNumber(rcv.srcProcessPort)
@@ -64,7 +75,9 @@ public class Server extends Thread {
 
             owner.addLink(link);
             owner.updateLSD(link);
-        } else link.getOtherEnd(owner.getSimulatedIp()).setStatus(RouterStatus.INIT); // Setting to init
+
+        } else
+            link.getOtherEnd(owner.getSimulatedIp()).setStatus(RouterStatus.INIT); // Setting to init
 
         System.out.println("set " + rcv.srcIP + " to INIT"); // Print log
 
@@ -81,11 +94,15 @@ public class Server extends Thread {
 
         out.writeObject(packet); // sending packet
 
-        // send lsupdate
-
 
     }
 
+    /**
+     * Handles second Hello packet and initiate LSUpdate broadcast
+     * @throws ClassNotFoundException serialization error
+     * @throws IOException stream error
+     * @throws InterruptedException can't be interrupted
+     */
     private void handleSecondHello() throws ClassNotFoundException, IOException, InterruptedException {
 
         rcv = (SOSPFPacket) in.readObject();
@@ -101,17 +118,19 @@ public class Server extends Thread {
 
 
 
-        Vector<Link> links = new Vector<>(Arrays.stream(owner.getPorts())
-                .filter(el -> !Objects.isNull(el))
+        Vector<Link> links = new Vector<>(Arrays.stream(owner.getPorts()) // get two_way links
+                .filter(el -> !Objects.isNull(el) && el.getOtherEnd(owner.getSimulatedIp()).getStatus() == RouterStatus.TWO_WAY)
                 .collect(Collectors.toSet()));
         Vector<LSA> lsas = new Vector<>(owner.getLsd().getAllLSA());
 
 
         Broadcast broadcast = new Broadcast(links, lsas, owner);
         broadcast.start();
-        broadcast.join();
+        broadcast.join(); // wait before continuing
 
     }
+
+
 
 
     @Override
@@ -126,49 +145,16 @@ public class Server extends Thread {
 
             switch (Utility.getSOSPFPacketType(rcv)) {
                 case HELLO:
+
                     handleFirstHello();
                     handleSecondHello();
                     break;
+
                 case LSUPDATE:
 
-                    System.out.println("Received LSUPDATE from " + rcv.srcIP);
-
-                    Vector<LSA> lsas = rcv.lsaArray;
-
-                    for (LSA lsa : lsas) {
-
-                        //System.out.println("LSA vector size: " + lsas.size());
-                        if (owner.getLsd().getFromStore(lsa.linkStateID) == null
-                                || (owner.getLsd().getFromStore(lsa.linkStateID).lsaSeqNumber < lsa.lsaSeqNumber)) { // no record from this router yet or newest sequence number
-
-                            System.out.println("Owner is :" + lsa.linkStateID);
-
-                            owner.getLsd().addToStore(lsa.linkStateID, lsa);
-
-                            // TODO fix filtering. Actually. Was working properly with lambdas..
-
-                            Vector<Link> links = new Vector(Arrays.stream(owner.getPorts())
-                                    .filter( el -> {
-                                        if (Objects.isNull(el))
-                                            return false;
-                                        else if (el.getOtherEnd(owner.getSimulatedIp()).getSimulatedIPAddress().equals(rcv.srcIP))
-                                            return false;
-                                        return true;
-                                    }).collect(Collectors.toSet())
-                            );
-
-                            for (Link link : links)
-                                    System.out.println("Broadcasting to: " + link.getOtherEnd(owner.getSimulatedIp()).getSimulatedIPAddress());
-
-                            Broadcast broadcast = new Broadcast(links, lsas, owner);
-                            broadcast.start();
-                        }
-                        else {
-                            //System.out.println("Dropping.");
-                        }
-
-                    }
+                    handleLSUpdate();
                     break;
+
                 case UNKNOWN:
                     System.out.println("Invalid packet type.");
                     break;
@@ -192,5 +178,42 @@ public class Server extends Thread {
         } catch (InterruptedException e) {}
 
 
+    }
+
+    /**
+     * Handles LSU packet
+     */
+    private void handleLSUpdate() {
+
+
+        Vector<LSA> lsas = rcv.lsaArray;
+
+        for (LSA lsa : lsas) {
+            if (owner.getLsd().getFromStore(lsa.linkStateID) == null
+                    || (owner.getLsd().getFromStore(lsa.linkStateID).lsaSeqNumber < lsa.lsaSeqNumber)) { // no record from this router yet or higher sequence number
+
+
+                owner.getLsd().addToStore(lsa.linkStateID, lsa);
+
+                Vector<Link> links = new Vector(Arrays.stream(owner.getPorts())
+                        .filter( el -> {
+                            if (Objects.isNull(el))
+                                return false;
+                            else if (el.getOtherEnd(owner.getSimulatedIp()).getSimulatedIPAddress().equals(rcv.srcIP))
+                                return false;
+                            else if (el.getOtherEnd(owner.getSimulatedIp()).getStatus() != RouterStatus.TWO_WAY)
+                                return false;
+                            return true;
+                        }).collect(Collectors.toSet())
+                );
+
+                Broadcast broadcast = new Broadcast(links, lsas, owner);
+                broadcast.start();
+            }
+            else {
+                //System.out.println("Dropping.");
+            }
+
+        }
     }
 }

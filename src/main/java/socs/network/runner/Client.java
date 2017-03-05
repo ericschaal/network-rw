@@ -37,12 +37,20 @@ public class Client extends Thread {
     }
 
 
+    /**
+     * Opens socket and IO streams
+     * @throws IOException IO stream error
+     */
     private void init() throws IOException {
         this.client = new Socket(destination.getProcessIPAddress(), destination.getProcessPortNumber());
         out = new ObjectOutputStream(client.getOutputStream());
         in = new ObjectInputStream(client.getInputStream());
     }
 
+    /**
+     * Sends Hello packet
+     * @throws IOException
+     */
     private void sendHello() throws IOException {
         SOSPFPacket hello = new SOSPFPacket.Builder()
                 .Hello()
@@ -58,10 +66,19 @@ public class Client extends Thread {
         out.writeObject(hello);
     }
 
+    /**
+     * Block until packet received
+     * @return received packet
+     * @throws IOException IO stream error
+     * @throws ClassNotFoundException Serialization error
+     */
     private SOSPFPacket receiveSOSFPacket() throws IOException, ClassNotFoundException {
         return (SOSPFPacket) in.readObject();
     }
 
+    /**
+     * Sets link as Two Way
+     */
     private void updateTwoWay() {
         link.getOtherEnd(owner.getSimulatedIp()).setStatus(RouterStatus.TWO_WAY);
     }

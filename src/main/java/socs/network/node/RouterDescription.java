@@ -30,10 +30,10 @@ public class RouterDescription {
 
     RouterDescription lhs = (RouterDescription) obj;
 
-    if (lhs.getSimulatedIPAddress() != getSimulatedIPAddress()
+    if (!lhs.getSimulatedIPAddress().equals(getSimulatedIPAddress())
             || lhs.getProcessPortNumber() != getProcessPortNumber()
-            || lhs.getStatus() != getStatus()
-            || lhs.getProcessIPAddress() != getProcessIPAddress())
+            || !lhs.getStatus().equals(getStatus())
+            || !lhs.getProcessIPAddress().equals(getProcessIPAddress()))
       return false;
 
     return true;

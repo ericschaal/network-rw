@@ -6,13 +6,11 @@ import java.util.Objects;
  * Created by ericschaal on 2017-03-01.
  */
 public class Edge  {
-    private final String id;
     private final Vertex source;
     private final Vertex destination;
     private final int weight;
 
-    public Edge(String id, Vertex source, Vertex destination, int weight) {
-        this.id = id;
+    public Edge(Vertex source, Vertex destination, int weight) {
         this.source = source;
         this.destination = destination;
         this.weight = weight;
@@ -26,9 +24,6 @@ public class Edge  {
         return  (lhs.destination.equals(destination) && source.equals(lhs.source));
     }
 
-    public String getId() {
-        return id;
-    }
     public Vertex getDestination() {
         return destination;
     }
@@ -42,7 +37,7 @@ public class Edge  {
 
     @Override
     public String toString() {
-        return source + " " + destination;
+        return source + "->" + destination;
     }
 
 

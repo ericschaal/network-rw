@@ -2,18 +2,15 @@ package socs.network.node;
 
 import socs.network.message.LSA;
 import socs.network.message.LinkDescription;
-
 import socs.network.runner.Broadcast;
 import socs.network.runner.Client;
 import socs.network.runner.Listener;
-
 import socs.network.util.Configuration;
 import socs.network.util.Utility;
 import socs.network.util.error.DuplicatedLink;
 import socs.network.util.error.LinkNotAvailable;
 import socs.network.util.error.NoPath;
 import socs.network.util.error.RouterPortsFull;
-
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -82,6 +79,12 @@ public class Router {
     }
 
 
+    /**
+     * Returns the port of the link
+     * @param link
+     * @return port of the link
+     * @throws LinkNotAvailable if link doesn't exist
+     */
     public synchronized int getLinkId(Link link) throws LinkNotAvailable {
         if (link == null)
             throw new IllegalArgumentException();
@@ -120,6 +123,11 @@ public class Router {
     }
 
 
+    /**
+     * Updates LS database with link
+     * Sequence number is incremented
+     * @param link to be added to LSD
+     */
     public synchronized void updateLSD(final Link link) {
         LSA lsa = lsd.getFromStore(rd.getSimulatedIPAddress()); // getting my lsa
         assert (lsa != null);
@@ -188,6 +196,7 @@ public class Router {
      */
     private synchronized void processAttach(String processIP, short processPort, String simulatedIP, short weight) {
 
+        // args check
         if (processIP == null
                 || simulatedIP == null
                 || processPort < 0
@@ -213,7 +222,6 @@ public class Router {
         try {
 
             addLink(newLink);
-            updateLSD(newLink);
 
 
         } catch (DuplicatedLink e) {
@@ -235,14 +243,17 @@ public class Router {
 
         LinkedList<Client> clients = new LinkedList<Client>();
 
+        // init Hello exchange
         for (Link link : ports) {
             if (link != null && link.getOtherEnd(getSimulatedIp()).getStatus() != RouterStatus.TWO_WAY) {
                 Client client = new Client(this, link);
                 clients.add(client);
                 client.start();
+                updateLSD(link);
             }
         }
 
+        // broadcast LS updates to neighbors
         try {
 
             for (Client client : clients)
@@ -259,6 +270,10 @@ public class Router {
     }
 
 
+    /**
+     * Returns all TWO_WAY links
+     * @return
+     */
     private synchronized Vector<Link> getTwoWayLinks() {
         Vector<Link> vector = new Vector();
         for (Link link : ports) {
@@ -332,10 +347,10 @@ public class Router {
                 } else if (command.equals("neighbors")) {
                     //output neighbors
                     processNeighbors();
-                } else if (command.equals("list")) {
+                } else if (command.equals("list")) { // debug
                     printPorts();
                 }
-                else if (command.equals("lsd")) {
+                else if (command.equals("lsd")) { // debug
                   printLSD();
                 } else if (command.startsWith("UnsafeRemove ")) {
                     String[] cmdLine = command.split(" ");
@@ -357,7 +372,7 @@ public class Router {
     }
 
     /**
-     * Prints all links in port array
+     * Prints all links
      */
     private synchronized void printPorts() {
         int i = 0;
@@ -374,9 +389,8 @@ public class Router {
     }
 
     /**
-     * Debug function. Do not use otherwise as it won't update the other end.
+     * Debug function. Do not use.
      * Network can end up in a bad state.
-     * (Rule of thumb, do not use after running "start()" and "start()" succeeded)
      * @param i index of link to be removed
      */
     private synchronized void removeLink(int i) {
