@@ -31,7 +31,7 @@ public class Router {
     public Router(Configuration config) {
 
         rd.setSimulatedIPAddress( config.getString("socs.network.router.ip"));
-        rd.setProcessIPAddress("192.168.0.139");
+        rd.setProcessIPAddress("127.0.0.1");
         rd.setProcessPortNumber((short) config.getInt("socs.network.router.port"));
         rd.setStatus(RouterStatus.DEFAULT);
 
