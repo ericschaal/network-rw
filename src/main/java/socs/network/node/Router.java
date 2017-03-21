@@ -122,6 +122,16 @@ public class Router {
 
     }
 
+    public boolean isNeighbor(String simulatedIp) {
+        for (Link link : ports) {
+            if (!Objects.isNull(link)) {
+                if (link.getOtherEnd(this.getSimulatedIp()).getSimulatedIPAddress().equals(simulatedIp))
+                    return true;
+            }
+        }
+        return false;
+    }
+
 
     /**
      * Updates LS database with link
@@ -156,8 +166,13 @@ public class Router {
      * @param link to be deleted
      * @return true if deleted successfully
      */
-    //TODO implement
     public synchronized boolean removeLink(Link link) {
+        for (int i = 0; i < 4; i++) {
+            if (ports[i].equals(link)) {
+                ports[i] = null;
+                return true;
+            }
+        }
         return false;
     }
 
@@ -184,6 +199,31 @@ public class Router {
      * @param portNumber the port number which the link attaches at
      */
     private void processDisconnect(short portNumber) {
+        try {
+
+            Link link = getLink(portNumber);
+            LinkDescription linkDescription = new LinkDescription.LinkDescriptionBuilder()
+                    .linkID(link.getOtherEnd(getSimulatedIp()).getSimulatedIPAddress())
+                    .portNum(getLinkId(link))
+                    .tosMetrics(link.getWeight())
+                    .build();
+
+            if (!lsd.removeFromStore(getSimulatedIp(),linkDescription))
+                System.out.println("ERROR");
+
+            Vector<LSA> lsas = new Vector(lsd.getAllLSA());
+
+            Broadcast broadcast = new Broadcast(getTwoWayLinks(), lsas, this);
+            broadcast.start();
+            broadcast.join();
+
+            removeLink(link);
+
+
+        } catch (LinkNotAvailable e) {
+            System.out.println("Link doesn't exist!");
+        } catch (InterruptedException e) {}
+
 
     }
 
@@ -194,7 +234,8 @@ public class Router {
      * <p/>
      * NOTE: this command should not trigger link database synchronization
      */
-    private synchronized void processAttach(String processIP, short processPort, String simulatedIP, short weight) {
+    // TODO fix this function
+    private synchronized Link processAttach(String processIP, short processPort, String simulatedIP, short weight) {
 
         // args check
         if (processIP == null
@@ -223,6 +264,7 @@ public class Router {
 
             addLink(newLink);
 
+            return newLink;
 
         } catch (DuplicatedLink e) {
             System.out.println("Duplicated link, link not added.");
@@ -230,7 +272,7 @@ public class Router {
             System.out.println("No available port, link not added");
         }
 
-
+        return null;
     }
 
     /**
@@ -269,7 +311,6 @@ public class Router {
 
     }
 
-
     /**
      * Returns all TWO_WAY links
      * @return
@@ -283,6 +324,26 @@ public class Router {
         return vector;
     }
 
+    public synchronized Link getLink(String destination) throws LinkNotAvailable {
+        for (Link link : ports) {
+            if (link != null) {
+                if (link.getOtherEnd(getSimulatedIp()).getSimulatedIPAddress().equals(destination))
+                    return link;
+            }
+        }
+        throw new LinkNotAvailable();
+    }
+
+    public synchronized Link getLink(short processPort) throws LinkNotAvailable {
+        for (Link link : ports) {
+            if (link != null) {
+                if (link.getOtherEnd(getSimulatedIp()).getProcessPortNumber() == processPort)
+                    return link;
+            }
+        }
+        throw new LinkNotAvailable();
+    }
+
 
     /**
      * attach the link to the remote router, which is identified by the given simulated ip;
@@ -293,6 +354,20 @@ public class Router {
      */
     private void processConnect(String processIP, short processPort,
                                 String simulatedIP, short weight) {
+
+        Link link = processAttach(processIP, processPort, simulatedIP, weight); // attach to router
+
+        // initiate connection to router
+        if (link != null && link.getOtherEnd(getSimulatedIp()).getStatus() != RouterStatus.TWO_WAY) {
+            Client client = new Client(this, link);
+            client.start();
+            updateLSD(link);
+
+            // database sync
+            Vector<LSA> lsas = new Vector<LSA>(lsd.getAllLSA());
+            Broadcast broadcast = new Broadcast(getTwoWayLinks(), lsas, this);
+            broadcast.start();
+        }
 
     }
 
@@ -311,7 +386,11 @@ public class Router {
      * Disconnects with all neighbors and quit the program
      */
     private void processQuit() {
-        //TODO complete implementation
+        for (Link link : ports) {
+            if (link != null) {
+                processDisconnect(link.getOtherEnd(this.getSimulatedIp()).getProcessPortNumber());
+            }
+        }
 
     }
 
@@ -340,7 +419,7 @@ public class Router {
                             cmdLine[3], Short.parseShort(cmdLine[4]));
                 } else if (command.equals("start")) {
                     processStart();
-                } else if (command.equals("connect ")) {
+                } else if (command.startsWith("connect ")) {
                     String[] cmdLine = command.split(" ");
                     processConnect(cmdLine[1], Short.parseShort(cmdLine[2]),
                             cmdLine[3], Short.parseShort(cmdLine[4]));

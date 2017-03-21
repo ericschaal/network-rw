@@ -1,6 +1,7 @@
 package socs.network.runner;
 
 import socs.network.message.LSA;
+import socs.network.message.LinkDescription;
 import socs.network.message.SOSPFPacket;
 import socs.network.node.Link;
 import socs.network.node.Router;
@@ -8,6 +9,7 @@ import socs.network.node.RouterDescription;
 import socs.network.node.RouterStatus;
 import socs.network.util.Utility;
 import socs.network.util.error.DuplicatedLink;
+import socs.network.util.error.LinkNotAvailable;
 import socs.network.util.error.RouterPortsFull;
 
 import java.io.IOException;
@@ -194,6 +196,35 @@ public class Server extends Thread {
 
 
                 owner.getLsd().addToStore(lsa.linkStateID, lsa);
+
+                // update links
+                boolean isDeleted = true;
+                System.out.println(lsa.linkStateID);
+                if (owner.isNeighbor(lsa.linkStateID)) {
+                    for (LinkDescription link : lsa.links) {
+                        if (link.getLinkID().equals(owner.getSimulatedIp())) {
+                            isDeleted = false;
+                            break;
+                        }
+                    }
+                    if (isDeleted) {
+                        try {
+
+                            Link toBeDeleted = owner.getLink(lsa.linkStateID);
+
+                            LinkDescription ld = new LinkDescription.LinkDescriptionBuilder()
+                                    .linkID(toBeDeleted.getOtherEnd(owner.getSimulatedIp()).getSimulatedIPAddress())
+                                    .portNum(owner.getLinkId(toBeDeleted))
+                                    .tosMetrics(toBeDeleted.getWeight())
+                                    .build();
+
+                            if (!owner.getLsd().removeFromStore(owner.getSimulatedIp(), ld))
+                                System.out.println("ERROR");
+
+                            owner.getPorts()[owner.getLinkId(toBeDeleted)] = null;
+                        } catch (LinkNotAvailable e) {System.out.println("Bad State");}
+                    }
+                }
 
                 Vector<Link> links = new Vector(Arrays.stream(owner.getPorts())
                         .filter( el -> {
