@@ -422,7 +422,7 @@ public class Router {
                             cmdLine[3], Short.parseShort(cmdLine[4]));
                 } else if (command.equals("start")) {
                     processStart();
-                } else if (command.equals("connect ")) {
+                } else if (command.startsWith("connect ")) {
                     String[] cmdLine = command.split(" ");
                     processConnect(cmdLine[1], Short.parseShort(cmdLine[2]),
                             cmdLine[3], Short.parseShort(cmdLine[4]));
