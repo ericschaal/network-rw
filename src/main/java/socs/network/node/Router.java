@@ -7,10 +7,7 @@ import socs.network.runner.Client;
 import socs.network.runner.Listener;
 import socs.network.util.Configuration;
 import socs.network.util.Utility;
-import socs.network.util.error.DuplicatedLink;
-import socs.network.util.error.LinkNotAvailable;
-import socs.network.util.error.NoPath;
-import socs.network.util.error.RouterPortsFull;
+import socs.network.util.error.*;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -31,7 +28,7 @@ public class Router {
     public Router(Configuration config) {
 
         rd.setSimulatedIPAddress( config.getString("socs.network.router.ip"));
-        rd.setProcessIPAddress("192.168.0.139");
+        rd.setProcessIPAddress("127.0.0.1");
         rd.setProcessPortNumber((short) config.getInt("socs.network.router.port"));
         rd.setStatus(RouterStatus.DEFAULT);
 
@@ -156,8 +153,13 @@ public class Router {
      * @param link to be deleted
      * @return true if deleted successfully
      */
-    //TODO implement
     public synchronized boolean removeLink(Link link) {
+        for (int i = 0; i < 4; i++) {
+            if (ports[i].equals(link)) {
+                ports[i] = null;
+                return true;
+            }
+        }
         return false;
     }
 
@@ -184,6 +186,34 @@ public class Router {
      * @param portNumber the port number which the link attaches at
      */
     private void processDisconnect(short portNumber) {
+        try {
+            Link link = getLink(portNumber);
+
+            LinkDescription linkDescription = new LinkDescription.LinkDescriptionBuilder()
+                    .linkID(link.getOtherEnd(getSimulatedIp()).getSimulatedIPAddress())
+                    .portNum(getLinkId(link))
+                    .tosMetrics(link.getWeight())
+                    .build();
+
+            lsd.removeLinkFromStore(getSimulatedIp(), linkDescription);
+            lsd.removeFromStore(link.getOtherEnd(getSimulatedIp()).getSimulatedIPAddress());
+
+            Vector<LSA> lsas = new Vector(lsd.getAllLSA());
+            getLsd().removeFromStore(link.getOtherEnd(getSimulatedIp()).getSimulatedIPAddress());
+            Broadcast broadcast = new Broadcast(getTwoWayLinks(), lsas, this);
+            broadcast.start();
+            broadcast.join();
+
+            removeLink(link);
+
+        }
+        catch (LinkNotAvailable e) {
+            System.out.println("Link does not exist.");
+        }
+        catch (DatabaseException e) {
+            System.out.println(e.getMessage());
+        }
+        catch (InterruptedException e) {}
 
     }
 
@@ -271,8 +301,8 @@ public class Router {
 
 
     /**
-     * Returns all TWO_WAY links
-     * @return
+     * Find all TWO_WAY links
+     * @return all TWO_WAY links
      */
     private synchronized Vector<Link> getTwoWayLinks() {
         Vector<Link> vector = new Vector();
@@ -281,6 +311,33 @@ public class Router {
                 vector.add(link);
         }
         return vector;
+    }
+
+
+    /**
+     * Find a link by its process port
+     * @param processPort
+     * @return Link that corresponds to proccessPort
+     * @throws LinkNotAvailable
+     */
+    public synchronized Link getLink(short processPort) throws LinkNotAvailable {
+        for (Link link : ports) {
+            if (link != null) {
+                if (link.getOtherEnd(getSimulatedIp()).getProcessPortNumber() == processPort)
+                    return link;
+            }
+        }
+        throw new LinkNotAvailable();
+    }
+
+    public synchronized Link getLink(String destinationIP) throws LinkNotAvailable {
+        for (Link link : ports) {
+            if (link != null) {
+                if (link.getOtherEnd(getSimulatedIp()).getSimulatedIPAddress().equals(destinationIP))
+                    return link;
+            }
+        }
+        throw new LinkNotAvailable();
     }
 
 

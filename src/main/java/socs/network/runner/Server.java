@@ -1,13 +1,16 @@
 package socs.network.runner;
 
 import socs.network.message.LSA;
+import socs.network.message.LinkDescription;
 import socs.network.message.SOSPFPacket;
 import socs.network.node.Link;
 import socs.network.node.Router;
 import socs.network.node.RouterDescription;
 import socs.network.node.RouterStatus;
 import socs.network.util.Utility;
+import socs.network.util.error.DatabaseException;
 import socs.network.util.error.DuplicatedLink;
+import socs.network.util.error.LinkNotAvailable;
 import socs.network.util.error.RouterPortsFull;
 
 import java.io.IOException;
@@ -15,6 +18,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Vector;
 import java.util.stream.Collectors;
@@ -187,13 +191,61 @@ public class Server extends Thread {
 
 
         Vector<LSA> lsas = rcv.lsaArray;
+        boolean flag = false;
 
         for (LSA lsa : lsas) {
             if (owner.getLsd().getFromStore(lsa.linkStateID) == null
                     || (owner.getLsd().getFromStore(lsa.linkStateID).lsaSeqNumber < lsa.lsaSeqNumber)) { // no record from this router yet or higher sequence number
 
 
-                owner.getLsd().addToStore(lsa.linkStateID, lsa);
+                if (owner.getLsd().getFromStore(lsa.linkStateID) != null && !lsa.delete_ack) {
+                    LinkedList<LinkDescription> removed = getRemoved(owner.getLsd().getFromStore(lsa.linkStateID).links, lsa.links);
+                    if (removed.size() == 1) {
+                        try {
+                            if (removed.get(0).getLinkID().equals(owner.getSimulatedIp())) { // is my neighbor
+                                Link toDelete = owner.getLink(lsa.linkStateID);
+                                LinkDescription ld = new LinkDescription.LinkDescriptionBuilder()
+                                        .linkID(toDelete.getOtherEnd(owner.getSimulatedIp()).getSimulatedIPAddress())
+                                        .portNum(owner.getLinkId(toDelete))
+                                        .tosMetrics(toDelete.getWeight())
+                                        .build();
+
+                                owner.getLsd().removeLinkFromStore(owner.getSimulatedIp(), ld);
+
+                                 LSA newLsa = owner.getLsd().getFromStore(owner.getSimulatedIp());
+                                 newLsa.delete_ack = true;
+                                 Vector<LSA> vLSA = new Vector<>();
+                                 vLSA.add(newLsa);
+                                Vector<Link> vLink = new Vector(Arrays.stream(owner.getPorts())
+                                        .filter( el -> {
+                                            if (Objects.isNull(el))
+                                                return false;
+                                            else if (el.getOtherEnd(owner.getSimulatedIp()).getSimulatedIPAddress().equals(rcv.srcIP))
+                                                return false;
+                                            return true;
+                                        }).collect(Collectors.toSet())
+                                );
+                                 Broadcast broadcast = new Broadcast(vLink, vLSA, owner);
+                                 broadcast.start();
+                                 broadcast.join();
+                                 owner.getPorts()[owner.getLinkId(toDelete)] = null;
+                                 flag = true;
+                                 owner.getLsd().removeFromStore(lsa.linkStateID);
+                            }
+                        }
+                        catch (InterruptedException e) {}
+                        catch (DatabaseException e) {
+                            System.out.println("DB error.");
+                        }
+                        catch (LinkNotAvailable e) {
+                            System.out.println("Link not available.");
+                        }
+                    }
+                }
+
+
+                if (!flag)
+                    owner.getLsd().addToStore(lsa.linkStateID, lsa);
 
                 Vector<Link> links = new Vector(Arrays.stream(owner.getPorts())
                         .filter( el -> {
@@ -207,6 +259,7 @@ public class Server extends Thread {
                         }).collect(Collectors.toSet())
                 );
 
+
                 Broadcast broadcast = new Broadcast(links, lsas, owner);
                 broadcast.start();
             }
@@ -216,4 +269,16 @@ public class Server extends Thread {
 
         }
     }
+
+
+
+    private LinkedList<LinkDescription> getRemoved(LinkedList<LinkDescription> oldD, LinkedList<LinkDescription> newD) {
+        LinkedList<LinkDescription> inter = new LinkedList<>();
+        for (LinkDescription ld : oldD) {
+            if (!newD.contains(ld))
+                inter.add(ld);
+        }
+        return inter;
+    }
+
 }

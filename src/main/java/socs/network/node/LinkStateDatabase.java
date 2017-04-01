@@ -6,6 +6,7 @@ import socs.network.util.ds.DijkstraAlgorithm;
 import socs.network.util.ds.Edge;
 import socs.network.util.ds.Graph;
 import socs.network.util.ds.Vertex;
+import socs.network.util.error.DatabaseException;
 import socs.network.util.error.NoPath;
 
 import java.util.Collection;
@@ -93,6 +94,20 @@ public class LinkStateDatabase {
 
   public synchronized LSA getFromStore(String linkstateID) {
     return _store.get(linkstateID);
+  }
+
+  public synchronized void removeLinkFromStore(String targetID, LinkDescription toBeRemoved) throws DatabaseException {
+    LSA lsa = _store.get(targetID);
+    if (Objects.isNull(lsa))
+      throw new DatabaseException("Target not found.");
+    if (!(lsa.links.remove(toBeRemoved)))
+      throw new DatabaseException("Link description not found.");
+    lsa.lsaSeqNumber++;
+  }
+
+  public synchronized boolean removeFromStore(String source) {
+    LSA toRemove = _store.remove(source);
+    return toRemove != null;
   }
 
 
