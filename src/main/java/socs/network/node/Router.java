@@ -329,27 +329,6 @@ public class Router {
         return vector;
     }
 
-    public synchronized Link getLink(String destination) throws LinkNotAvailable {
-        for (Link link : ports) {
-            if (link != null) {
-                if (link.getOtherEnd(getSimulatedIp()).getSimulatedIPAddress().equals(destination))
-                    return link;
-            }
-        }
-        throw new LinkNotAvailable();
-    }
-
-    public synchronized Link getLink(short processPort) throws LinkNotAvailable {
-        for (Link link : ports) {
-            if (link != null) {
-                if (link.getOtherEnd(getSimulatedIp()).getProcessPortNumber() == processPort)
-                    return link;
-            }
-        }
-        throw new LinkNotAvailable();
-    }
-
-
     /**
      * Find a link by its process port
      * @param processPort
