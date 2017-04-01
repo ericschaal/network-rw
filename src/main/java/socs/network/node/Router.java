@@ -156,7 +156,7 @@ public class Router {
      */
     public synchronized boolean removeLink(Link link) {
         for (int i = 0; i < 4; i++) {
-            if (ports[i].equals(link)) {
+            if (ports[i] != null && ports[i].equals(link)) {
                 ports[i] = null;
                 return true;
             }
