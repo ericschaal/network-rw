@@ -7,10 +7,7 @@ import socs.network.runner.Client;
 import socs.network.runner.Listener;
 import socs.network.util.Configuration;
 import socs.network.util.Utility;
-import socs.network.util.error.DuplicatedLink;
-import socs.network.util.error.LinkNotAvailable;
-import socs.network.util.error.NoPath;
-import socs.network.util.error.RouterPortsFull;
+import socs.network.util.error.*;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -202,16 +199,19 @@ public class Router {
         try {
 
             Link link = getLink(portNumber);
+
             LinkDescription linkDescription = new LinkDescription.LinkDescriptionBuilder()
                     .linkID(link.getOtherEnd(getSimulatedIp()).getSimulatedIPAddress())
                     .portNum(getLinkId(link))
                     .tosMetrics(link.getWeight())
                     .build();
 
-            if (!lsd.removeFromStore(getSimulatedIp(),linkDescription))
-                System.out.println("ERROR");
+
+            lsd.removeLinkFromStore(getSimulatedIp(), linkDescription);
+            lsd.removeFromStore(link.getOtherEnd(getSimulatedIp()).getSimulatedIPAddress());
 
             Vector<LSA> lsas = new Vector(lsd.getAllLSA());
+            getLsd().removeFromStore(link.getOtherEnd(getSimulatedIp()).getSimulatedIPAddress());
 
             Broadcast broadcast = new Broadcast(getTwoWayLinks(), lsas, this);
             broadcast.start();
@@ -220,9 +220,14 @@ public class Router {
             removeLink(link);
 
 
-        } catch (LinkNotAvailable e) {
-            System.out.println("Link doesn't exist!");
-        } catch (InterruptedException e) {}
+        }
+        catch (LinkNotAvailable e) {
+            System.out.println("Link does not exist.");
+        }
+        catch (DatabaseException e) {
+            System.out.println(e.getMessage());
+        }
+        catch (InterruptedException e) {}
 
 
     }
@@ -312,8 +317,8 @@ public class Router {
     }
 
     /**
-     * Returns all TWO_WAY links
-     * @return
+     * Find all TWO_WAY links
+     * @return all TWO_WAY links
      */
     private synchronized Vector<Link> getTwoWayLinks() {
         Vector<Link> vector = new Vector();
@@ -338,6 +343,33 @@ public class Router {
         for (Link link : ports) {
             if (link != null) {
                 if (link.getOtherEnd(getSimulatedIp()).getProcessPortNumber() == processPort)
+                    return link;
+            }
+        }
+        throw new LinkNotAvailable();
+    }
+
+
+    /**
+     * Find a link by its process port
+     * @param processPort
+     * @return Link that corresponds to proccessPort
+     * @throws LinkNotAvailable
+     */
+    public synchronized Link getLink(short processPort) throws LinkNotAvailable {
+        for (Link link : ports) {
+            if (link != null) {
+                if (link.getOtherEnd(getSimulatedIp()).getProcessPortNumber() == processPort)
+                    return link;
+            }
+        }
+        throw new LinkNotAvailable();
+    }
+
+    public synchronized Link getLink(String destinationIP) throws LinkNotAvailable {
+        for (Link link : ports) {
+            if (link != null) {
+                if (link.getOtherEnd(getSimulatedIp()).getSimulatedIPAddress().equals(destinationIP))
                     return link;
             }
         }
