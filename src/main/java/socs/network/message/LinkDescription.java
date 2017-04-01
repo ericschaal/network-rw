@@ -33,7 +33,7 @@ public class LinkDescription implements Serializable {
     if (Objects.isNull(obj) || !(obj instanceof LinkDescription))
       return false;
     LinkDescription lhs = (LinkDescription) obj;
-    return (lhs.tosMetrics == tosMetrics && lhs.portNum == portNum && lhs.linkID.equals(linkID));
+    return (lhs.tosMetrics == tosMetrics && lhs.linkID.equals(linkID));
   }
 
   @Override
@@ -41,7 +41,6 @@ public class LinkDescription implements Serializable {
     int result = 17;
     result = 31 * result + linkID.hashCode();
     result = 31 * result + tosMetrics;
-    result = 31 * result + portNum;
     return result;
   }
 

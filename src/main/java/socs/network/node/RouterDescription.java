@@ -32,7 +32,6 @@ public class RouterDescription {
 
     if (!lhs.getSimulatedIPAddress().equals(getSimulatedIPAddress())
             || lhs.getProcessPortNumber() != getProcessPortNumber()
-            || !lhs.getStatus().equals(getStatus())
             || !lhs.getProcessIPAddress().equals(getProcessIPAddress()))
       return false;
 
