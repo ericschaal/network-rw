@@ -248,6 +248,35 @@ public class Server extends Thread {
                 if (!flag)
                     owner.getLsd().addToStore(lsa.linkStateID, lsa);
 
+                // update links
+                boolean isDeleted = true;
+                System.out.println(lsa.linkStateID);
+                if (owner.isNeighbor(lsa.linkStateID)) {
+                    for (LinkDescription link : lsa.links) {
+                        if (link.getLinkID().equals(owner.getSimulatedIp())) {
+                            isDeleted = false;
+                            break;
+                        }
+                    }
+                    if (isDeleted) {
+                        try {
+
+                            Link toBeDeleted = owner.getLink(lsa.linkStateID);
+
+                            LinkDescription ld = new LinkDescription.LinkDescriptionBuilder()
+                                    .linkID(toBeDeleted.getOtherEnd(owner.getSimulatedIp()).getSimulatedIPAddress())
+                                    .portNum(owner.getLinkId(toBeDeleted))
+                                    .tosMetrics(toBeDeleted.getWeight())
+                                    .build();
+
+                            if (!owner.getLsd().removeFromStore(owner.getSimulatedIp(), ld))
+                                System.out.println("ERROR");
+
+                            owner.getPorts()[owner.getLinkId(toBeDeleted)] = null;
+                        } catch (LinkNotAvailable e) {System.out.println("Bad State");}
+                    }
+                }
+
                 Vector<Link> links = new Vector(Arrays.stream(owner.getPorts())
                         .filter( el -> {
                             if (Objects.isNull(el))

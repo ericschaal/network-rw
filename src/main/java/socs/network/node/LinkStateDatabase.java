@@ -92,6 +92,14 @@ public class LinkStateDatabase {
     return _store.values();
   }
 
+  public synchronized boolean removeFromStore(String source, LinkDescription link) {
+
+    boolean result = _store.get(source).links.remove(link);
+    if (result)
+      _store.get(source).lsaSeqNumber++;
+    return result;
+  }
+
   public synchronized LSA getFromStore(String linkstateID) {
     return _store.get(linkstateID);
   }
