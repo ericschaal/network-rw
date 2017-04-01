@@ -12,6 +12,7 @@ import socs.network.util.error.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Vector;
@@ -224,7 +225,7 @@ public class Router {
      * <p/>
      * NOTE: this command should not trigger link database synchronization
      */
-    private synchronized void processAttach(String processIP, short processPort, String simulatedIP, short weight) {
+    private synchronized Link processAttach(String processIP, short processPort, String simulatedIP, short weight) {
 
         // args check
         if (processIP == null
@@ -260,6 +261,7 @@ public class Router {
             System.out.println("No available port, link not added");
         }
 
+        return newLink;
 
     }
 
@@ -283,6 +285,8 @@ public class Router {
             }
         }
 
+        int maxSeq = lsd.getAllLSA().stream().max(Comparator.comparingInt((a) -> a.lsaSeqNumber)).get().lsaSeqNumber;
+        lsd.getFromStore(getSimulatedIp()).lsaSeqNumber = maxSeq+1;
         // broadcast LS updates to neighbors
         try {
 
@@ -348,8 +352,29 @@ public class Router {
      * <p/>
      * This command does trigger the link database synchronization
      */
+    //TODO test this.
     private void processConnect(String processIP, short processPort,
                                 String simulatedIP, short weight) {
+        Link link = processAttach(processIP, processPort, simulatedIP, weight); // attach to router
+
+        // initiate connection to router
+        if (link != null && link.getOtherEnd(getSimulatedIp()).getStatus() != RouterStatus.TWO_WAY) {
+            Client client = new Client(this, link);
+            client.start();
+            updateLSD(link);
+
+            try {
+                client.join();
+            } catch (InterruptedException e) {}
+
+            int maxSeq = lsd.getAllLSA().stream().max(Comparator.comparingInt((a) -> a.lsaSeqNumber)).get().lsaSeqNumber;
+            lsd.getFromStore(getSimulatedIp()).lsaSeqNumber = maxSeq+1;
+
+            // database sync
+            Vector<LSA> lsas = new Vector<LSA>(lsd.getAllLSA());
+            Broadcast broadcast = new Broadcast(getTwoWayLinks(), lsas, this);
+            broadcast.start();
+        }
 
     }
 

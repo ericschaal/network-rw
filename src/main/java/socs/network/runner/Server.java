@@ -198,8 +198,9 @@ public class Server extends Thread {
                     || (owner.getLsd().getFromStore(lsa.linkStateID).lsaSeqNumber < lsa.lsaSeqNumber)) { // no record from this router yet or higher sequence number
 
 
-                if (owner.getLsd().getFromStore(lsa.linkStateID) != null && !lsa.delete_ack) {
+                if (owner.getLsd().getFromStore(lsa.linkStateID) != null) {
                     LinkedList<LinkDescription> removed = getRemoved(owner.getLsd().getFromStore(lsa.linkStateID).links, lsa.links);
+                    //System.out.println("Removed Size = " + removed.size());
                     if (removed.size() == 1) {
                         try {
                             if (removed.get(0).getLinkID().equals(owner.getSimulatedIp())) { // is my neighbor
@@ -235,10 +236,10 @@ public class Server extends Thread {
                         }
                         catch (InterruptedException e) {}
                         catch (DatabaseException e) {
-                            System.out.println("DB error.");
+                            //System.out.println("DB error.");
                         }
                         catch (LinkNotAvailable e) {
-                            System.out.println("Link not available.");
+                            //System.out.println("Link not available. Not an error. (just debug)");
                         }
                     }
                 }
