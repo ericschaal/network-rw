@@ -12,6 +12,7 @@ import socs.network.util.error.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Vector;
@@ -117,16 +118,6 @@ public class Router {
 
         throw new RouterPortsFull();
 
-    }
-
-    public boolean isNeighbor(String simulatedIp) {
-        for (Link link : ports) {
-            if (!Objects.isNull(link)) {
-                if (link.getOtherEnd(this.getSimulatedIp()).getSimulatedIPAddress().equals(simulatedIp))
-                    return true;
-            }
-        }
-        return false;
     }
 
 
@@ -269,7 +260,6 @@ public class Router {
 
             addLink(newLink);
 
-            return newLink;
 
         } catch (DuplicatedLink e) {
             System.out.println("Duplicated link, link not added.");
@@ -277,7 +267,8 @@ public class Router {
             System.out.println("No available port, link not added");
         }
 
-        return null;
+        return newLink;
+
     }
 
     /**
@@ -300,6 +291,8 @@ public class Router {
             }
         }
 
+        int maxSeq = lsd.getAllLSA().stream().max(Comparator.comparingInt((a) -> a.lsaSeqNumber)).get().lsaSeqNumber;
+        lsd.getFromStore(getSimulatedIp()).lsaSeqNumber = maxSeq+1;
         // broadcast LS updates to neighbors
         try {
 
@@ -316,6 +309,7 @@ public class Router {
 
     }
 
+
     /**
      * Find all TWO_WAY links
      * @return all TWO_WAY links
@@ -328,6 +322,7 @@ public class Router {
         }
         return vector;
     }
+
 
     /**
      * Find a link by its process port
@@ -363,9 +358,9 @@ public class Router {
      * <p/>
      * This command does trigger the link database synchronization
      */
+    //TODO test this.
     private void processConnect(String processIP, short processPort,
                                 String simulatedIP, short weight) {
-
         Link link = processAttach(processIP, processPort, simulatedIP, weight); // attach to router
 
         // initiate connection to router
@@ -373,6 +368,13 @@ public class Router {
             Client client = new Client(this, link);
             client.start();
             updateLSD(link);
+
+            try {
+                client.join();
+            } catch (InterruptedException e) {}
+
+            int maxSeq = lsd.getAllLSA().stream().max(Comparator.comparingInt((a) -> a.lsaSeqNumber)).get().lsaSeqNumber;
+            lsd.getFromStore(getSimulatedIp()).lsaSeqNumber = maxSeq+1;
 
             // database sync
             Vector<LSA> lsas = new Vector<LSA>(lsd.getAllLSA());
