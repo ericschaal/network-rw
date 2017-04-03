@@ -404,6 +404,7 @@ public class Router {
                 processDisconnect(link.getOtherEnd(this.getSimulatedIp()).getProcessPortNumber());
             }
         }
+        System.exit(0);
 
     }
 
